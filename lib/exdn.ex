@@ -337,8 +337,8 @@ defmodule Exdn do
   defp to_erldn_intermediate(pairs, converter) when is_map(pairs) do
     convert_pair = fn({key, val}) -> { to_erldn_intermediate(key, converter), to_erldn_intermediate(val, converter) } end
     keyword_list = pairs |> to_map |> Enum.map(convert_pair)
-    if converter do
-      converter.(pairs.__struct__, pairs, keyword_list)
+    if converter && Map.get(pairs, :__struct__) do
+      converter.(Map.get(pairs, :__struct__), pairs, keyword_list) || {:map, keyword_list}
     else
       {:map, keyword_list}
     end
