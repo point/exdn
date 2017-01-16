@@ -296,8 +296,8 @@ defmodule Exdn do
       "#inst \"1985-04-12T23:20:50.52Z\""
   """
   @spec from_elixir!(exdn) :: String.t
-  def from_elixir!(elixir_data) do
-    erldn_intermediate = to_erldn_intermediate(elixir_data)
+  def from_elixir!(elixir_data, converter \\ nil) do
+    erldn_intermediate = to_erldn_intermediate(elixir_data, converter)
     :erldn.to_string(erldn_intermediate) |> to_string
   end
 
@@ -320,29 +320,33 @@ defmodule Exdn do
     end
   end
 
-  defp to_erldn_intermediate(items) when is_list(items) do
-    {:vector, Enum.map(items, fn(x) -> to_erldn_intermediate(x) end)}
+  defp to_erldn_intermediate(items, converter) when is_list(items) do
+    {:vector, Enum.map(items, fn(x) -> to_erldn_intermediate(x, converter) end)}
   end
 
-  defp to_erldn_intermediate( {:list, items} )  do
-    Enum.map(items, fn(x) -> to_erldn_intermediate(x) end)
+  defp to_erldn_intermediate( {:list, items}, converter )  do
+    Enum.map(items, fn(x) -> to_erldn_intermediate(x, converter) end)
   end
 
-  defp to_erldn_intermediate(%MapSet{} = set) do
-    items = Enum.map(set, fn(x) -> to_erldn_intermediate(x) end)
+  defp to_erldn_intermediate(%MapSet{} = set, converter) do
+    items = Enum.map(set, fn(x) -> to_erldn_intermediate(x, converter) end)
     {:set, items}
   end
 
   # Works on structs or maps
-  defp to_erldn_intermediate(pairs) when is_map(pairs) do
-    convert_pair = fn({key, val}) -> { to_erldn_intermediate(key), to_erldn_intermediate(val) } end
+  defp to_erldn_intermediate(pairs, converter) when is_map(pairs) do
+    convert_pair = fn({key, val}) -> { to_erldn_intermediate(key, converter), to_erldn_intermediate(val, converter) } end
     keyword_list = pairs |> to_map |> Enum.map(convert_pair)
-    {:map, keyword_list}
+    if converter do
+      converter.(pairs.__struct__, pairs, keyword_list)
+    else
+      {:map, keyword_list}
+    end
   end
 
-  defp to_erldn_intermediate( {:tag, tag, val} ), do: {:tag, tag, to_erldn_intermediate(val) }
+  defp to_erldn_intermediate( {:tag, tag, val}, converter ), do: {:tag, tag, to_erldn_intermediate(val, converter) }
 
-  defp to_erldn_intermediate(val), do: val
+  defp to_erldn_intermediate(val, _converter), do: val
 
   defp to_map(struct_or_map) do
     case struct_or_map do
